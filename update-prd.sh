@@ -1,12 +1,15 @@
 #!/bin/bash
 # Update prd.json to mark a story as complete
-# Usage: ./update-prd.sh <story-id>
+# Usage: .ralph/update-prd.sh <story-id>
+
+set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PRD_FILE="$SCRIPT_DIR/prd.json"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+PRD_FILE="$PROJECT_ROOT/prd.json"
 
 if [ ! -f "$PRD_FILE" ]; then
-  echo "Error: prd.json not found in $SCRIPT_DIR"
+  echo "Error: prd.json not found in project root: $PRD_FILE"
   exit 1
 fi
 

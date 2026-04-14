@@ -1,11 +1,9 @@
 # Ralph for GitHub Copilot CLI - Git Ignore
 
-# Runtime files
+# Runtime files (created by init.sh)
+prd.json
 progress.txt
-.last-branch
-
-# Archive directory
-archive/
+tasks/
 
 # OS files
 .DS_Store
