@@ -1,101 +1,230 @@
 # Ralph for GitHub Copilot CLI
 
-Ralph 是一个自主 AI 代理循环，专为 GitHub Copilot CLI 设计。它重复运行 Copilot CLI 直到所有 PRD 项目完成。
+Ralph 是一个自主 AI 代理循环，**直接在 GitHub Copilot CLI 内部运行**，无需外部 bash 脚本。
 
-基于 [snarktank/ralph](https://github.com/snarktank/ralph) 项目改编，适配 GitHub Copilot CLI。
+基于 [snarktank/ralph](https://github.com/snarktank/ralph) 项目改编。
 
-## 功能
+## 快速开始
 
-- 自主运行 AI 编码任务，无需人工干预
-- 每次迭代使用干净的上下文（fresh context）
-- 通过 git 历史、`progress.txt` 和 `prd.json` 保持记忆
-- 自动质量检查（类型检查、测试）
-- 自动提交和更新进度
-
-## 前提条件
-
-- GitHub Copilot CLI 已安装并认证
-  - 安装：`curl -fsSL https://gh.io/copilot-install | bash`
-  - 或：`brew install copilot-cli`
-  - 或：`npm install -g @github/copilot`
-- `jq` 已安装（macOS: `brew install jq`）
-- 项目已在 git 仓库中
-
-## 安装
+### 1. 安装依赖
 
 ```bash
-# 复制 ralph 文件到你的项目
+# 安装 GitHub Copilot CLI
+curl -fsSL https://gh.io/copilot-install | bash
+# 或：brew install copilot-cli
+# 或：npm install -g @github/copilot
+
+# 安装 jq
+brew install jq  # macOS
+```
+
+### 2. 认证
+
+```bash
+copilot
+# 按提示登录 GitHub
+```
+
+### 3. 在你的项目中设置
+
+```bash
+cd /path/to/your/project
+
+# 复制 Ralph 文件
 mkdir -p scripts/ralph
 cp -r ~/sourcecode/ralph-copilot/* scripts/ralph/
-chmod +x scripts/ralph/ralph.sh
+
+# 初始化
+cd scripts/ralph
+./init-ralph.sh
 ```
 
-## 使用流程
-
-### 1. 创建 PRD
-
-创建 `prd.json` 文件，定义用户故事。参考 `prd.json.example`。
-
-### 2. 运行 Ralph
+### 4. 在 Copilot CLI 中运行 Ralph
 
 ```bash
-# 默认 10 次迭代
-./scripts/ralph/ralph.sh
+cd /path/to/your/project/scripts/ralph
 
-# 指定最大迭代次数
-./scripts/ralph/ralph.sh 20
-
-# 使用实验模式（启用 Autopilot）
-./scripts/ralph/ralph.sh --experimental
+# 启动 Copilot CLI（启用实验模式）
+copilot --experimental
 ```
+
+然后在 Copilot CLI 中说：
+
+```
+Load the ralph-run skill and execute all pending stories in prd.json
+```
+
+或者按 `Shift+Tab` 切换到 **Autopilot** 模式，然后说：
+
+```
+Run Ralph - implement all stories in prd.json where passes is false
+```
+
+---
 
 ## 核心文件
 
 | 文件 | 用途 |
 |------|------|
-| `ralph.sh` | Bash 循环脚本，启动 Copilot CLI |
-| `COPilot.md` | Copilot CLI 的提示模板 |
 | `prd.json` | 用户故事列表和完成状态 |
 | `progress.txt` | 追加式进度日志 |
-| `prd.json.example` | PRD 格式示例 |
+| `skills/ralph-run/SKILL.md` | Ralph 运行技能（在 Copilot CLI 中使用） |
+| `skills/prd/SKILL.md` | PRD 生成技能 |
+| `skills/ralph/SKILL.md` | PRD 转 JSON 技能 |
 
-## 工作原理
+---
 
-1. 从 PRD `branchName` 创建/切换到功能分支
-2. 选择优先级最高且 `passes: false` 的用户故事
-3. 运行 Copilot CLI 实现该故事
-4. 运行质量检查（类型检查、测试）
-5. 如果检查通过，提交更改
-6. 更新 `prd.json` 标记故事为 `passes: true`
-7. 追加进度到 `progress.txt`
-8. 重复直到所有故事完成或达到最大迭代次数
+## 完整工作流
+
+### 步骤 1：生成 PRD
+
+在 Copilot CLI 中：
+
+```
+Load the prd skill and create a PRD for adding user authentication
+```
+
+回答澄清问题，PRD 会保存到 `tasks/prd-user-auth.md`。
+
+### 步骤 2：转换为 Ralph 格式
+
+```
+Load the ralph skill and convert tasks/prd-user-auth.md to prd.json
+```
+
+这会创建 `prd.json` 文件。
+
+### 步骤 3：运行 Ralph
+
+```
+Load the ralph-run skill and execute all pending stories
+```
+
+Ralph 会：
+1. 读取 `prd.json` 找到第一个 `passes: false` 的故事
+2. 实现该故事
+3. 运行质量检查
+4. 提交更改
+5. 更新 `prd.json` 和 `progress.txt`
+6. 继续下一个故事，直到全部完成
+
+### 步骤 4：完成
+
+当所有故事完成后，Ralph 会显示：
+
+```
+<promise>COMPLETE</promise>
+
+All user stories completed!
+- Total stories: 4
+- Completed in 4 iterations
+```
+
+---
+
+## 使用 Autopilot 模式
+
+Autopilot 模式让 Ralph 更自主地工作：
+
+1. 启动 Copilot CLI：`copilot --experimental`
+2. 按 `Shift+Tab` 切换到 **Autopilot** 模式
+3. 输入：`Run Ralph on prd.json`
+4. Ralph 会自主工作直到完成
+
+---
 
 ## 关键概念
 
 ### 每次迭代 = 新鲜上下文
 
-每次迭代启动一个**新的 Copilot CLI 实例**，上下文是干净的。迭代之间的记忆仅通过：
-- Git 历史（之前迭代的提交）
+Ralph 每次实现一个故事后会结束当前会话。下次迭代是新的 Copilot CLI 实例，但通过以下保持记忆：
+- Git 历史（提交）
 - `progress.txt`（学到的经验）
-- `prd.json`（哪些故事完成了）
+- `prd.json`（完成状态）
 
 ### 小任务
 
-每个 PRD 项目应该足够小，能在一个上下文窗口内完成。
+每个故事应该足够小，能在一次迭代中完成：
 
-合适的故事：
+✅ **好的：**
 - 添加数据库字段和迁移
 - 向现有页面添加 UI 组件
-- 更新 server action 的新逻辑
 
-太大的故事（需要拆分）：
+❌ **太大：**
 - "构建整个仪表板"
-- "添加认证"
-- "重构 API"
+- "添加认证系统"
 
-### 反馈循环
+---
 
-Ralph 只有在有反馈循环时才有效：
-- 类型检查捕获类型错误
-- 测试验证行为
-- CI 必须保持绿色
+## 命令参考
+
+```bash
+# 初始化 Ralph
+./init-ralph.sh
+
+# 在 Copilot CLI 中运行（外部启动）
+copilot --experimental
+# 然后：Load the ralph-run skill and execute all pending stories
+
+# 手动更新 PRD 状态
+./update-prd.sh US-001
+
+# 查看剩余故事
+jq '.userStories[] | select(.passes == false) | .title' prd.json
+
+# 查看进度
+cat progress.txt
+```
+
+---
+
+## 项目结构
+
+```
+your-project/
+└── scripts/ralph/
+    ├── prd.json                 # 用户故事（运行时）
+    ├── progress.txt             # 进度日志（运行时）
+    ├── init-ralph.sh            # 初始化脚本
+    ├── update-prd.sh            # 更新 PRD 工具
+    └── skills/
+        ├── prd/SKILL.md         # PRD 生成器
+        ├── ralph/SKILL.md       # PRD 转 JSON
+        └── ralph-run/SKILL.md   # Ralph 运行器
+```
+
+---
+
+## 故障排除
+
+### Copilot CLI 未找到
+```bash
+curl -fsSL https://gh.io/copilot-install | bash
+```
+
+### 认证问题
+```bash
+copilot /login
+```
+
+### prd.json 格式错误
+```bash
+jq empty prd.json  # 验证 JSON 格式
+```
+
+---
+
+## 与原始 Ralph 的区别
+
+| 特性 | 原始 Ralph | ralph-copilot |
+|------|-----------|---------------|
+| 运行方式 | bash 脚本外部循环 | Copilot CLI 内部技能 |
+| AI 工具 | Claude Code / Amp | GitHub Copilot CLI |
+| Autopilot | 无 | 支持（Shift+Tab） |
+| 技能 | claude-code | ralph-run |
+
+---
+
+## 许可证
+
+MIT License
