@@ -1,0 +1,22 @@
+# Ralph for GitHub Copilot CLI - Git Ignore
+
+# Runtime files
+progress.txt
+.last-branch
+
+# Archive directory
+archive/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
